@@ -1157,21 +1157,8 @@ class VACEPromptCombine:
 
     CATEGORY = "SuperUltimateVaceTools"
     DESCRIPTION = ""
-    combine_prompt(
-        self,
-        positive_prompt,
-        negative_prompt,
-        num_frame,
-        init_crossfade_frame,
-        refine_init,
-        vace_strength,
-        model_override_h=None,
-        model_override_l=None,
-        ref_image=None,
-        custom_refine=None,
-        previous_prompt=None,
-        seed_override=None
-    ):
+    def combine_prompt( self, positive_prompt, negative_prompt, num_frame, init_crossfade_frame, refine_init, vace_strength, model_override_h=None,
+        model_override_l=None, ref_image=None, custom_refine=None, previous_prompt=None, seed_override=None):
         if init_crossfade_frame > num_frame:
             raise ValueError("过渡帧数目不能大于总帧数\ninit_crossfade_frame can not be larger than num_frame")
         prompt_list = []
