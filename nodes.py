@@ -800,8 +800,15 @@ QQ群：948626609
             colormatch_strength_list = item['colormatch_strength_list']
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
-            if item['model_override'] is not None:
-                model = item['model_override']
+            # Per-segment model override:
+            # - VACE (Wan2.1-style) is a single-model pipeline here.
+            # - We treat override_h as "the" override model for this segment.
+            # Back-compat: if older prompt dicts still contain 'model_override', honor it.
+            override_h = item.get('model_override_h', None)
+            if override_h is None and item.get('model_override', None) is not None:
+                override_h = item.get('model_override')
+            if override_h is not None:
+                model = override_h
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -913,7 +920,6 @@ class VaceFunLongVideo:
     # RETURN_TYPES = ("IMAGE", "LIST", "LIST", "IMAGE", )
     OUTPUT_TOOLTIPS = ("Generated Video",)
     FUNCTION = "long_video_vace_fun"
-
     CATEGORY = "SuperUltimateVaceTools"
     DESCRIPTION = """
 VACE长视频拼接|Long video by concating multiple parts
@@ -980,8 +986,20 @@ QQ群：948626609
             colormatch_strength_list = item['colormatch_strength_list']
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
-            # if item['model_override'] is not None:
-            #     model = item['model_override']
+            # Wan2.2 “Fun” style workflows commonly run as a two-stage denoise:
+            # - High-noise expert defines global structure/motion early in the schedule
+            # - Low-noise expert refines details later
+            # To support segment-level style changes, allow overriding either/both experts.
+            override_h = item.get('model_override_h', None)
+            override_l = item.get('model_override_l', None)
+            # Back-compat: if someone feeds an old prompt dict with 'model_override',
+            # treat it as the high-noise override (leaving low-noise unchanged).
+            if override_h is None and item.get('model_override', None) is not None:
+                override_h = item.get('model_override')
+            if override_h is not None:
+                model_h = override_h
+            if override_l is not None:
+                model_l = override_l
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -1118,7 +1136,14 @@ class VACEPromptCombine:
                 "vace_strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             },
             "optional": {
-                "model_override": ("MODEL", {"tooltip": "Use this model in this generation, no use for fun vace"}),
+                # Model override is stored *per prompt-segment* so long videos can switch
+                # checkpoints mid-timeline (e.g. different look/LoRAs baked into different models).
+                #
+                # For Wan2.1-style VACE you typically have a single model. For Wan2.2 “Fun”
+                # workflows the pipeline is often split into High-Noise and Low-Noise experts
+                # (two models used at different denoise stages), so we accept two overrides.
+                "model_override_h": ("MODEL", {"tooltip": "Optional: Used for VACE as the single override, and for VACEFUN as the High-Noise model."}),
+                "model_override_l": ("MODEL", {"tooltip": "Optional: Used only for VACEFUN as the Low-Noise model."}),
                 "ref_image": ("IMAGE", ),
                 "custom_refine": ("REFINELIST", ),
                 "previous_prompt": ("PROMPTLIST", ),
@@ -1132,7 +1157,21 @@ class VACEPromptCombine:
 
     CATEGORY = "SuperUltimateVaceTools"
     DESCRIPTION = ""
-    def combine_prompt(self, positive_prompt, negative_prompt, num_frame, init_crossfade_frame, refine_init, vace_strength, model_override=None, ref_image=None, custom_refine=None, previous_prompt=None, seed_override=None):
+    combine_prompt(
+        self,
+        positive_prompt,
+        negative_prompt,
+        num_frame,
+        init_crossfade_frame,
+        refine_init,
+        vace_strength,
+        model_override_h=None,
+        model_override_l=None,
+        ref_image=None,
+        custom_refine=None,
+        previous_prompt=None,
+        seed_override=None
+    ):
         if init_crossfade_frame > num_frame:
             raise ValueError("过渡帧数目不能大于总帧数\ninit_crossfade_frame can not be larger than num_frame")
         prompt_list = []
@@ -1163,7 +1202,8 @@ class VACEPromptCombine:
         if previous_prompt is not None:
             prompt_list.extend(previous_prompt)
         prompt_list.append({
-            'model_override': model_override,
+            'model_override_h': model_override_h,
+            'model_override_l': model_override_l,
             'seed_override': seed_override,
             'prompt_p': positive_prompt,
             'prompt_n': negative_prompt,
