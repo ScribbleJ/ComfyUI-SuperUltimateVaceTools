@@ -800,15 +800,9 @@ QQ群：948626609
             colormatch_strength_list = item['colormatch_strength_list']
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
-            # Per-segment model override:
             # - VACE (Wan2.1-style) is a single-model pipeline here.
             # - We treat override_h as "the" override model for this segment.
-            # Back-compat: if older prompt dicts still contain 'model_override', honor it.
             override_h = item.get('model_override_h', None)
-            if override_h is None and item.get('model_override', None) is not None:
-                override_h = item.get('model_override')
-            if override_h is not None:
-                model = override_h
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -986,20 +980,9 @@ QQ群：948626609
             colormatch_strength_list = item['colormatch_strength_list']
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
-            # Wan2.2 “Fun” style workflows commonly run as a two-stage denoise:
-            # - High-noise expert defines global structure/motion early in the schedule
-            # - Low-noise expert refines details later
-            # To support segment-level style changes, allow overriding either/both experts.
+            # VACE FUN uses a split checkpoint, "high" and "low" denoise
             override_h = item.get('model_override_h', None)
             override_l = item.get('model_override_l', None)
-            # Back-compat: if someone feeds an old prompt dict with 'model_override',
-            # treat it as the high-noise override (leaving low-noise unchanged).
-            if override_h is None and item.get('model_override', None) is not None:
-                override_h = item.get('model_override')
-            if override_h is not None:
-                model_h = override_h
-            if override_l is not None:
-                model_l = override_l
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -1143,7 +1126,7 @@ class VACEPromptCombine:
                 # workflows the pipeline is often split into High-Noise and Low-Noise experts
                 # (two models used at different denoise stages), so we accept two overrides.
                 "model_override_h": ("MODEL", {"tooltip": "Optional: Used for VACE as the single override, and for VACEFUN as the High-Noise model."}),
-                "model_override_l": ("MODEL", {"tooltip": "Optional: Used only for VACEFUN as the Low-Noise model."}),
+                "model_override_l": ("MODEL", {"tooltip": "Optional: VACEFUN only, as the Low-Noise model."}),
                 "ref_image": ("IMAGE", ),
                 "custom_refine": ("REFINELIST", ),
                 "previous_prompt": ("PROMPTLIST", ),
