@@ -801,8 +801,8 @@ QQ群：948626609
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
             # - VACE (Wan2.1-style) is a single-model pipeline here.
-            # - We treat override_h as "the" override model for this segment.
-            override_h = item.get('model_override_h', None)
+            # - We treat h as "the" override model for this segment.
+            model_override_h = item.get('model_override_h', None)
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -981,8 +981,8 @@ QQ群：948626609
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
             # VACE FUN uses a split checkpoint, "high" and "low" denoise
-            override_h = item.get('model_override_h', None)
-            override_l = item.get('model_override_l', None)
+            model_override_h = item.get('model_override_h', None)
+            model_override_l = item.get('model_override_l', None)
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
