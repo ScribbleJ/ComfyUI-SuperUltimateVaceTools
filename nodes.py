@@ -802,7 +802,7 @@ QQ群：948626609
             vace_strength = item['vace_strength']
             # - VACE (Wan2.1-style) is a single-model pipeline here.
             # - We treat h as "the" override model for this segment.
-            model_override_h = item.get('model_override_h', None)
+            model_override = item.get('model_override_h', model)
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -840,20 +840,20 @@ QQ群：948626609
             conditions = vace_cond_execute(cond_p, cond_n, vae, width, height, num_frame, 1, vace_strength, control_video=controls, control_masks=mask_ctl, reference_image=ref_image, latent_strength_list=latent_strength_list)
             nag_parameters = nag_params
             if nag_parameters is None:
-                sample = nodes.common_ksampler(model, seed, steps, cfg, sampler_name, scheduler, conditions['positive'], conditions['negative'], conditions['out_latent'], 
+                sample = nodes.common_ksampler(model_override, seed, steps, cfg, sampler_name, scheduler, conditions['positive'], conditions['negative'], conditions['out_latent'], 
                                                     denoise=1.0, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False)[0]
             else:
                 latent_image = conditions['out_latent']["samples"]
-                latent_image = comfy.sample.fix_empty_latent_channels(model, latent_image)
+                latent_image = comfy.sample.fix_empty_latent_channels(model_override, latent_image)
                 noise = comfy.sample.prepare_noise(latent_image, seed, None)
-                callback = latent_preview.prepare_callback(model, steps)
+                callback = latent_preview.prepare_callback(model_override, steps)
                 disable_pbar = not comfy.utils.PROGRESS_BAR_ENABLED
                 nag_scale = nag_parameters['nag_scale']
                 nag_tau = nag_parameters['nag_tau']
                 nag_alpha = nag_parameters['nag_alpha']
                 nag_sigma_end = nag_parameters['nag_sigma_end']
                 nag_negative = conditions['negative']
-                nag_sample_out = sample_with_nag(model, noise, steps, cfg, nag_scale, nag_tau, nag_alpha, nag_sigma_end, sampler_name, scheduler, conditions['positive'], conditions['negative'], 
+                nag_sample_out = sample_with_nag(model_override, noise, steps, cfg, nag_scale, nag_tau, nag_alpha, nag_sigma_end, sampler_name, scheduler, conditions['positive'], conditions['negative'], 
                                            nag_negative, latent_image, denoise=denoise, disable_noise=False, start_step=None, last_step=None, force_full_denoise=False, 
                                            noise_mask=None, callback=callback, disable_pbar=disable_pbar, seed=seed)
                 sample = {"samples": nag_sample_out}
@@ -981,8 +981,8 @@ QQ群：948626609
             ref_image = item['ref_image']
             vace_strength = item['vace_strength']
             # VACE FUN uses a split checkpoint, "high" and "low" denoise
-            model_override_h = item.get('model_override_h', None)
-            model_override_l = item.get('model_override_l', None)
+            model_override_h = item.get('model_override_h', model_h)
+            model_override_l = item.get('model_override_l', model_h)
             if item['seed_override'] != 0:
                 seed = item['seed_override']
             # control
@@ -1021,27 +1021,27 @@ QQ群：948626609
             nag_parameters = nag_params
             steps = steps_h + steps_l
             if nag_parameters is None:
-                sample_h = nodes.common_ksampler(model_h, seed, steps, cfg_h, sampler_h, scheduler_h, conditions['positive'], conditions['negative'], conditions['out_latent'], 
+                sample_h = nodes.common_ksampler(model_override_h, seed, steps, cfg_h, sampler_h, scheduler_h, conditions['positive'], conditions['negative'], conditions['out_latent'], 
                                                     denoise=1.0, disable_noise=False, start_step=0, last_step=steps_h, force_full_denoise=False)[0]
-                sample_l = nodes.common_ksampler(model_l, seed, steps, cfg_l, sampler_l, scheduler_l, conditions['positive'], conditions['negative'], sample_h, 
+                sample_l = nodes.common_ksampler(model_override_l, seed, steps, cfg_l, sampler_l, scheduler_l, conditions['positive'], conditions['negative'], sample_h, 
                                                     denoise=1.0, disable_noise=True, start_step=steps_h, last_step=10000, force_full_denoise=True)[0]
             else:
                 latent_image = conditions['out_latent']["samples"]
-                latent_image = comfy.sample.fix_empty_latent_channels(model_h, latent_image)
+                latent_image = comfy.sample.fix_empty_latent_channels(model_override_h, latent_image)
                 noise_h = comfy.sample.prepare_noise(latent_image, seed, None)
                 noise_l = torch.zeros(latent_image.size(), dtype=latent_image.dtype, layout=latent_image.layout, device="cpu")
-                callback_h = latent_preview.prepare_callback(model_h, steps)
-                callback_l = latent_preview.prepare_callback(model_l, steps)
+                callback_h = latent_preview.prepare_callback(model_override_h, steps)
+                callback_l = latent_preview.prepare_callback(model_override_l, steps)
                 disable_pbar = not comfy.utils.PROGRESS_BAR_ENABLED
                 nag_scale = nag_parameters['nag_scale']
                 nag_tau = nag_parameters['nag_tau']
                 nag_alpha = nag_parameters['nag_alpha']
                 nag_sigma_end = nag_parameters['nag_sigma_end']
                 nag_negative = conditions['negative']
-                nag_sample_out_h = sample_with_nag(model_h, noise_h, steps, cfg_h, nag_scale, nag_tau, nag_alpha, nag_sigma_end, sampler_h, scheduler_h, conditions['positive'], conditions['negative'], 
+                nag_sample_out_h = sample_with_nag(model_override_h, noise_h, steps, cfg_h, nag_scale, nag_tau, nag_alpha, nag_sigma_end, sampler_h, scheduler_h, conditions['positive'], conditions['negative'], 
                                            nag_negative, latent_image, denoise=1.0, disable_noise=False, start_step=0, last_step=steps_h, force_full_denoise=False, 
                                            noise_mask=None, callback=callback_h, disable_pbar=disable_pbar, seed=seed)
-                nag_sample_out_l = sample_with_nag(model_l, noise_l, steps, cfg_l, nag_scale, nag_tau, nag_alpha, nag_sigma_end, sampler_l, scheduler_l, conditions['positive'], conditions['negative'], 
+                nag_sample_out_l = sample_with_nag(model_override_l, noise_l, steps, cfg_l, nag_scale, nag_tau, nag_alpha, nag_sigma_end, sampler_l, scheduler_l, conditions['positive'], conditions['negative'], 
                                            nag_negative, nag_sample_out_h, denoise=1.0, disable_noise=True, start_step=steps_h, last_step=10000, force_full_denoise=True, 
                                            noise_mask=None, callback=callback_l, disable_pbar=disable_pbar, seed=seed)
                 sample_l = {"samples": nag_sample_out_l}
